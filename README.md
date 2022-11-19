@@ -1,4 +1,12 @@
 # Discord Custom RPC
+This Python 3 script connects to a variety of sources and publishes that information as your Discord status.
+Supported sources:
+- A variety of internet websites through WebNowPlaying
+  - Requires the use of [my fork](https://github.com/jacksonrakena/WebNowPlaying-BrowserExtension)
+  - YouTube videos, Twitch streams, + a variety of other sites
+- Spotify (through RPC), including showing your playlist name and album covers
+- Detecting running applications on Windows
+  - Requires you to whitelist them in `config.json`
 
 ## Requirements
 - Python 3
