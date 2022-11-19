@@ -1,21 +1,23 @@
-from time import time, sleep
-from json.decoder import JSONDecodeError
-from json import load as j_load
-from random import choice
-from os import getcwd
-from psutil import process_iter, boot_time
-from spotipy import Spotify, SpotifyException, SpotifyOAuth
-from pypresence import Presence
-from pypresence.exceptions import InvalidID, InvalidPipe, DiscordError, DiscordNotFound
-from dataclasses import dataclass
-from time import localtime, strftime, sleep
-from requests import ConnectTimeout, get
-from xml_to_dict import XMLtoDict
 import logging
-import sys
 import signal
+import sys
+from dataclasses import dataclass
+from json import load as j_load
+from json.decoder import JSONDecodeError
+from os import getcwd
+from random import choice
+from time import localtime, sleep, strftime, time
 from traceback import format_tb
 from typing import Optional
+
+from psutil import boot_time, process_iter
+from pypresence import Presence
+from pypresence.exceptions import (DiscordError, DiscordNotFound, InvalidID,
+                                   InvalidPipe)
+from requests import ConnectTimeout, get
+from spotipy import Spotify, SpotifyException, SpotifyOAuth
+from xml_to_dict import XMLtoDict
+
 
 #This class is just intended to be something that more or less mimics None without it actually being a nonetype
 # It's used as a fill in for when a Client ID is not provided for an application
@@ -195,7 +197,8 @@ class CustomRPC():
                     try: # Otherwise, form the data, creating the "Play on spotify" button and displaying the song name - artist
                         # And do some maths to make the start/end time, depending on whichever the config says to use. 
                         # This is an epoch/unix time and we just minus/plus the progress
-                        payload.state = f"{spotify['item']['name']} - {spotify['item']['artists'][0]['name']}"
+                        payload.details = f"{spotify['item']['name']} — {spotify['item']['artists'][0]['name']}"
+                        payload.state = f"on {spotify['item']['album']['name']}"
                         media_button = {"label": "Play on Spotify", "url": spotify["item"]["external_urls"]["spotify"]}
                         client_id = self.config["spotify_cid"] # Set the spotify Client ID
                         if self.config["use_time_left_media"] == True:
@@ -295,18 +298,19 @@ class CustomRPC():
                     if webnp["player"] in self.config["other_media"].keys(): # Check if the player type is defined in the config, so we use their custom client ids/etc
                         client_id = self.config["other_media"][webnp["player"]]["client_id"]
                         if len(f"{webnp['title']} - {webnp['artist']}") > 128: # Run some weird maths to cut off the title if it is too long, while ensuring the artist length won't make it too long
-                            payload.state = f"{webnp['title'][:-(len(webnp['artist'])-(128-len(webnp['artist'])-3))]}... - {webnp['artist']}"
+                            payload.details = f"{webnp['title'][:-(len(webnp['artist'])-(128-len(webnp['artist'])-3))]}..."
                         else:
-                            payload.state = f"{webnp['title']} - {webnp['artist']}"
+                            payload.details = f"{webnp['title']}"
+                        payload.state = webnp['artist']
                         payload.small_image = self.config["other_media"][webnp["player"]]["icon"] # Set the small image defined for the player
-                        if webnp["player"] == "Twitch": # Hard coded stuff for twitch, giving a button for other people to click on to join the stream
+                        if webnp["player"] == "Twitch" and webnp['artist'] is not None: # Hard coded stuff for twitch, giving a button for other people to click on to join the stream
                             media_button = {"label": "Watch on Twitch", "url": f"https://twitch.tv/{webnp['artist'].lower()}"}
                             payload.state = f"Watching {webnp['artist']} on Twitch"
                         elif webnp["player"] == "Youtube":
                             if webnp["cover"] != "":
                                 try:
                                     video_id = webnp["cover"].split("/")[-2]
-                                    media_button = {"label": "Watch on Youtube", "url": f"https://youtube.com/watch?v={video_id}"}
+                                    media_button = {"label": "Watch on YouTube", "url": f"https://youtube.com/watch?v={video_id}"}
                                 except IndexError:
                                     media_button = None
                         else:

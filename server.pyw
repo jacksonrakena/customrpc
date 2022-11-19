@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import asyncio
-import websockets
-from json import dumps
-from time import time
 import logging
 import sys
+from json import dumps
+from time import time
+
+import websockets
 
 
 class Client:
@@ -125,7 +126,7 @@ class WebNowPlaying:
                 f.write(dumps(client.to_dict(), indent=4))
 
 if __name__ == "__main__":
-    w = WebNowPlaying(port=8975)
+    w = WebNowPlaying(port=8974)
     try:
         w.run()
     except KeyboardInterrupt:
