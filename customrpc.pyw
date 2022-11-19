@@ -6,6 +6,7 @@ from json import load as j_load
 from json.decoder import JSONDecodeError
 from os import getcwd
 from random import choice
+from threading import Thread
 from time import localtime, sleep, strftime, time
 from traceback import format_tb
 from typing import Optional
@@ -17,6 +18,10 @@ from pypresence.exceptions import (DiscordError, DiscordNotFound, InvalidID,
 from requests import ConnectTimeout, get
 from spotipy import Spotify, SpotifyException, SpotifyOAuth
 from xml_to_dict import XMLtoDict
+
+from constants import REFRESH_TIME_SECONDS
+from mcache import MemoryCache
+from wnp_client import client_init
 
 
 #This class is just intended to be something that more or less mimics None without it actually being a nonetype
@@ -116,6 +121,7 @@ class CustomRPC():
         chandler.setFormatter(self.format)                                        
         self.log.addHandler(chandler)
 
+        self.playlists = MemoryCache('playlists')
         self.prev_cid = None # The last client ID used for connecting. Used for comparasions
         self.connected = False # If the RPC is currently connected. This can only really be assumed 
         self.previous_payload: Optional[Payload] = None # Temporary var for comparing between payloads to decide if we need to send an update to discord
@@ -197,8 +203,22 @@ class CustomRPC():
                     try: # Otherwise, form the data, creating the "Play on spotify" button and displaying the song name - artist
                         # And do some maths to make the start/end time, depending on whichever the config says to use. 
                         # This is an epoch/unix time and we just minus/plus the progress
+
+
                         payload.details = f"{spotify['item']['name']} — {spotify['item']['artists'][0]['name']}"
-                        payload.state = f"on {spotify['item']['album']['name']}"
+                        if spotify['item']['name'] != spotify['item']['album']['name']:
+                            payload.state = f"on {spotify['item']['album']['name']}"
+                        else:
+                            payload.state = None
+
+                        if spotify['context'] is not None and spotify['context']['type'] == 'playlist':
+                            payload.state = spotify['context']['uri']
+                            playlist_id = spotify['context']['uri']
+                            playlist_name = self.playlists.get(playlist_id)
+                            if playlist_name is None:
+                                playlist_name = self.sp.playlist(playlist_id)['name']
+                                self.playlists.put(playlist_id, playlist_name)
+                            payload.state = playlist_name
                         media_button = {"label": "Play on Spotify", "url": spotify["item"]["external_urls"]["spotify"]}
                         client_id = self.config["spotify_cid"] # Set the spotify Client ID
                         if self.config["use_time_left_media"] == True:
@@ -206,6 +226,8 @@ class CustomRPC():
                         else:
                             payload.start = int(time() - int(spotify["progress_ms"]/1000))
                         payload.small_image = self.config["spotify_icon"] # Get small image spotify icon
+                        payload.large_image = spotify['item']['album']['images'][0]['url'] # Get large image from album art
+                        payload.large_text = f"{spotify['item']['album']['name']} — {spotify['item']['artists'][0]['name']}"
                     except KeyError as e: # If something failed, just log it and move on
                         formatted_exception = "Traceback (most recent call last):\n" + ''.join(format_tb(e.__traceback__)) + f"{type(e).__name__}: {e}"
                         self.log.error(formatted_exception)
@@ -401,10 +423,10 @@ class CustomRPC():
                         self.reconnect(client_id=client_id)
                     else:
                         break
-            sleep(15) # Sleep for 15 seconds, since we can only update the rich presence every 15 seconds
+            sleep(REFRESH_TIME_SECONDS) # Sleep for 15 seconds, since we can only update the rich presence every 15 seconds
         else:
-            self.log.debug("Ignoring same payload")
-            sleep(5) # We don't want to constantly try fetch a new payload if nothing has changed, so only sleep for 5 seconds
+            #self.log.debug("Ignoring same payload")
+            sleep(REFRESH_TIME_SECONDS) # We don't want to constantly try fetch a new payload if nothing has changed, so only sleep for 5 seconds
         try:
             with open(f"{getcwd()}/config.json") as f: # Reread the config file to see if it has been updated, ignore if errors
                 self.config = j_load(f)
@@ -414,6 +436,7 @@ class CustomRPC():
             self.log.warning("Error reading config file")
 
     def close(self, signal, frame): # Properly shutdown the rich presence, disconnecting cleanly. Not sure if this even works
+        self.playlists.save()
         self.log.info("Stopping...")
         try:
             self.RPC.close()
@@ -425,6 +448,8 @@ class CustomRPC():
         return "Traceback (most recent call last):\n" + ''.join(format_tb(e.__traceback__)) + f"{type(e).__name__}: {e}"
 
 if __name__ == "__main__":
+    thread = Thread(target=client_init, daemon=True)
+    thread.start()
     rpc = CustomRPC()
     while True:
         try:

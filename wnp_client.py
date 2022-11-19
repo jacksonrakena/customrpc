@@ -125,7 +125,9 @@ class WebNowPlaying:
             with open(".info.json", "w") as f:
                 f.write(dumps(client.to_dict(), indent=4))
 
-if __name__ == "__main__":
+def client_init():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     w = WebNowPlaying(port=8974)
     try:
         w.run()
@@ -135,3 +137,5 @@ if __name__ == "__main__":
         w.log.info("Stopping...")
         with open(".info.json", "w") as f: #Clear file on exit
             f.write("")
+if __name__ == "__main__":
+    client_init()
