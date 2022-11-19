@@ -1,4 +1,6 @@
 # Discord Custom RPC
+*A modified version of Cataiana's [upstream customrpc project](https://github.com/CataIana/customrpc)*  
+  
 This Python 3 script connects to a variety of sources and publishes that information as your Discord status.
 Supported sources:
 - A variety of internet websites through WebNowPlaying
